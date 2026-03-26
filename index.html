@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ForestWatch India</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --ink:#0f0f0f;
+  --ink2:#2a2a2a;
+  --ink3:#555;
+  --rule:#d4cfc8;
+  --paper:#f5f2ed;
+  --paper2:#ede9e2;
+  --loss:#c0392b;
+  --gain:#1a6b3a;
+  --neutral:#5a6a5a;
+  --accent:#b5451b;
+  --serif:'Playfair Display',Georgia,serif;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+}
+html{font-size:16px;background:var(--paper)}
+body{color:var(--ink);font-family:var(--sans);min-height:100vh}
+
+.masthead{
+  border-bottom:3px solid var(--ink);
+  padding:18px 48px 14px;
+  display:flex;align-items:baseline;justify-content:space-between;
+  background:var(--paper);
+}
+.masthead-title{
+  font-family:var(--serif);font-size:38px;font-weight:900;
+  letter-spacing:-0.02em;line-height:1;
+}
+.masthead-title em{font-style:italic;color:var(--accent)}
+.masthead-meta{font-family:var(--mono);font-size:11px;color:var(--ink3);text-align:right;line-height:1.7}
+.masthead-rule{height:1px;background:var(--ink);margin:0 48px}
+
+.controls{
+  padding:16px 48px;
+  border-bottom:1px solid var(--rule);
+  display:flex;align-items:center;gap:32px;flex-wrap:wrap;
+  background:var(--paper);
+}
+.ctrl-group{display:flex;align-items:center;gap:10px}
+.ctrl-label{font-family:var(--mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink3)}
+
+select{
+  font-family:var(--mono);font-size:13px;
+  padding:7px 32px 7px 12px;
+  border:1.5px solid var(--ink);border-radius:0;
+  background:var(--paper);color:var(--ink);
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%230f0f0f'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;
+  cursor:pointer;
+}
+select:focus{outline:2px solid var(--ink);outline-offset:2px}
+
+.mode-tabs{display:flex;border:1.5px solid var(--ink)}
+.mode-tab{
+  font-family:var(--mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;
+  padding:7px 16px;border:none;background:transparent;cursor:pointer;
+  color:var(--ink3);transition:all 0.15s;
+}
+.mode-tab.active{background:var(--ink);color:var(--paper)}
+.mode-tab:not(:last-child){border-right:1.5px solid var(--ink)}
+
+.run-btn{
+  font-family:var(--mono);font-size:12px;letter-spacing:0.1em;text-transform:uppercase;
+  padding:8px 24px;
+  background:var(--ink);color:var(--paper);border:none;cursor:pointer;
+  transition:background 0.15s;
+}
+.run-btn:hover{background:var(--ink2)}
+.run-btn:disabled{opacity:0.4;cursor:not-allowed}
+
+.page{display:grid;grid-template-columns:1fr 380px;min-height:calc(100vh - 120px)}
+
+.stage{position:relative;background:#1a1a18;overflow:hidden;min-height:520px}
+
+.img-pair{display:grid;grid-template-columns:1fr 1fr;height:100%;gap:2px}
+.img-single{height:100%}
+
+.stage-img{
+  width:100%;height:100%;object-fit:cover;display:block;
+  transition:opacity 0.4s ease;
+}
+.stage-placeholder{
+  width:100%;height:100%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:#555;gap:12px;font-family:var(--mono);font-size:12px;
+}
+.stage-placeholder svg{opacity:0.2}
+
+.img-label{
+  position:absolute;bottom:16px;font-family:var(--mono);font-size:11px;
+  background:rgba(15,15,15,0.82);color:#e8e4dd;
+  padding:4px 10px;letter-spacing:0.08em;
+  backdrop-filter:blur(4px);
+}
+.img-label.left{left:16px}
+.img-label.right{right:16px}
+
+.view-strip{
+  position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  display:flex;gap:2px;background:rgba(15,15,15,0.7);padding:3px;
+  backdrop-filter:blur(6px);
+}
+.vbtn{
+  font-family:var(--mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;
+  padding:4px 12px;border:none;background:transparent;color:#aaa;cursor:pointer;
+}
+.vbtn.active{background:var(--paper);color:var(--ink)}
+
+.diff-legend{
+  position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+  display:flex;gap:16px;background:rgba(15,15,15,0.82);padding:8px 16px;
+  font-family:var(--mono);font-size:11px;color:#e8e4dd;
+  backdrop-filter:blur(4px);
+}
+.legend-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
+
+.stage-loader{
+  position:absolute;inset:0;background:rgba(26,26,24,0.75);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity 0.2s;
+  backdrop-filter:blur(3px);
+}
+.stage-loader.show{opacity:1;pointer-events:all}
+.loader-inner{display:flex;flex-direction:column;align-items:center;gap:12px;color:#e8e4dd;font-family:var(--mono);font-size:12px}
+.spinner{width:28px;height:28px;border:2px solid rgba(255,255,255,0.15);border-top-color:#e8e4dd;border-radius:50%;animation:spin 0.7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.panel{
+  border-left:1px solid var(--rule);
+  background:var(--paper2);
+  display:flex;flex-direction:column;
+  overflow-y:auto;
+}
+.panel-section{padding:24px 28px;border-bottom:1px solid var(--rule)}
+.panel-section:last-child{border-bottom:none}
+
+.section-eyebrow{
+  font-family:var(--mono);font-size:10px;letter-spacing:0.16em;text-transform:uppercase;
+  color:var(--ink3);margin-bottom:16px;
+  display:flex;align-items:center;gap:8px;
+}
+.section-eyebrow::after{content:'';flex:1;height:1px;background:var(--rule)}
+
+.big-stat{margin-bottom:20px}
+.big-stat-value{
+  font-family:var(--serif);font-size:52px;font-weight:700;line-height:1;
+  color:var(--ink);
+}
+.big-stat-value.loss-color{color:var(--loss)}
+.big-stat-value.gain-color{color:var(--gain)}
+.big-stat-unit{font-family:var(--mono);font-size:12px;color:var(--ink3);margin-top:4px}
+.big-stat-label{font-size:13px;color:var(--ink2);margin-top:6px;line-height:1.4;font-weight:300}
+
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.metric-cell{padding:14px;background:var(--paper);border:1px solid var(--rule)}
+.metric-cell-label{font-family:var(--mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px}
+.metric-cell-value{font-family:var(--serif);font-size:26px;font-weight:700;color:var(--ink);line-height:1}
+.metric-cell-unit{font-family:var(--mono);font-size:10px;color:var(--ink3);margin-top:3px}
+
+.change-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--rule)}
+.change-row:last-child{border-bottom:none}
+.change-key{font-family:var(--mono);font-size:11px;color:var(--ink3)}
+.change-val{font-family:var(--mono);font-size:13px;font-weight:500}
+.change-val.neg{color:var(--loss)}
+.change-val.pos{color:var(--gain)}
+
+.compare-bars{display:flex;flex-direction:column;gap:10px}
+.bar-row{display:flex;align-items:center;gap:10px}
+.bar-year{font-family:var(--mono);font-size:11px;color:var(--ink3);width:34px;text-align:right;flex-shrink:0}
+.bar-track{flex:1;height:8px;background:var(--rule);position:relative}
+.bar-fill{height:100%;background:var(--gain);transition:width 1s cubic-bezier(0.22,1,0.36,1);width:0}
+.bar-val{font-family:var(--mono);font-size:10px;color:var(--ink2);width:54px;flex-shrink:0}
+
+.empty-state{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:40px;text-align:center;gap:12px;
+  color:var(--ink3);font-family:var(--mono);font-size:12px;line-height:1.7;
+}
+
+.footer{
+  border-top:2px solid var(--ink);padding:14px 48px;
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;
+  background:var(--paper);font-family:var(--mono);font-size:10px;color:var(--ink3);
+}
+
+.range-wrap{display:flex;flex-direction:column;gap:6px}
+.range-labels{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--ink3)}
+.dual-slider{position:relative;height:24px;width:200px}
+.dual-slider input[type=range]{
+  position:absolute;width:100%;height:4px;top:10px;
+  appearance:none;background:transparent;pointer-events:none;
+}
+.dual-slider input[type=range]::-webkit-slider-thumb{
+  appearance:none;width:16px;height:16px;
+  border-radius:0;background:var(--ink);border:2px solid var(--paper);
+  box-shadow:0 0 0 1.5px var(--ink);
+  pointer-events:all;cursor:pointer;
+}
+.slider-track{
+  position:absolute;height:4px;top:10px;left:0;right:0;
+  background:var(--rule);
+}
+.slider-range{
+  position:absolute;height:4px;top:10px;
+  background:var(--ink);
+}
+
+@media(max-width:900px){
+  .page{grid-template-columns:1fr}
+  .panel{border-left:none;border-top:2px solid var(--ink);max-height:none}
+  .masthead{padding:14px 20px}
+  .controls{padding:12px 20px}
+  .footer{padding:12px 20px}
+}
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead-title">Forest<em>Watch</em> India</div>
+  <div class="masthead-meta">
+    Sentinel-2 · VARI Vegetation Index<br>
+    Google Earth Engine · 10m resolution
+  </div>
+</header>
+<div class="masthead-rule"></div>
+
+<div class="controls">
+  <div class="ctrl-group">
+    <span class="ctrl-label">City</span>
+    <select id="city-select">
+      <option value="chennai">Chennai</option>
+      <option value="bengaluru">Bengaluru</option>
+    </select>
+  </div>
+
+  <div class="ctrl-group">
+    <span class="ctrl-label">Mode</span>
+    <div class="mode-tabs">
+      <button class="mode-tab active" onclick="setMode('single')">Single year</button>
+      <button class="mode-tab" onclick="setMode('compare')">Compare years</button>
+    </div>
+  </div>
+
+  <div class="ctrl-group" id="single-ctrl">
+    <span class="ctrl-label">Year</span>
+    <select id="year-select">
+      <option>2019</option><option selected>2022</option><option>2025</option>
+    </select>
+  </div>
+
+  <div class="ctrl-group" id="compare-ctrl" style="display:none">
+    <span class="ctrl-label">From</span>
+    <select id="year-a">
+      <option selected>2019</option><option>2022</option><option>2025</option>
+    </select>
+    <span class="ctrl-label" style="margin-left:4px">To</span>
+    <select id="year-b">
+      <option>2019</option><option>2022</option><option selected>2025</option>
+    </select>
+  </div>
+
+  <button class="run-btn" id="run-btn" onclick="runAnalysis()">Analyse →</button>
+  <span id="status-msg" style="font-family:var(--mono);font-size:11px;color:var(--ink3)"></span>
+</div>
+
+<div class="page">
+
+  <div class="stage" id="stage">
+    <div class="stage-placeholder" id="placeholder">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+        <rect x="6" y="6" width="36" height="36" rx="3" stroke="#555" stroke-width="1.5"/>
+        <path d="M6 30l10-10 8 8 8-12 10 14" stroke="#555" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <span>Select a city and year, then click Analyse</span>
+    </div>
+
+    <div id="single-view" style="display:none;height:100%;position:relative">
+      <div class="view-strip" id="view-strip">
+        <button class="vbtn active" onclick="setSatView('satellite')">Satellite</button>
+        <button class="vbtn" onclick="setSatView('overlay')">Overlay</button>
+        <button class="vbtn" onclick="setSatView('mask')">Mask</button>
+      </div>
+      <img id="main-img" class="stage-img" src="" alt="">
+      <span class="img-label left" id="single-label"></span>
+    </div>
+
+    <div id="compare-view" style="display:none;height:100%;position:relative">
+      <div class="img-pair" style="height:100%">
+        <div style="position:relative">
+          <img id="diff-img-a" class="stage-img" src="" alt="" style="height:100%">
+          <span class="img-label left" id="cmp-label-a"></span>
+        </div>
+        <div style="position:relative">
+          <img id="diff-img" class="stage-img" src="" alt="" style="height:100%">
+          <span class="img-label right" id="cmp-label-b"></span>
+        </div>
+      </div>
+      <div class="diff-legend" id="diff-legend">
+        <span><span class="legend-dot" style="background:#1a6b3a"></span>Stable forest</span>
+        <span><span class="legend-dot" style="background:#c0392b"></span>Forest lost</span>
+        <span><span class="legend-dot" style="background:#e8b400"></span>Forest gained</span>
+      </div>
+    </div>
+
+    <div class="stage-loader" id="loader"><div class="loader-inner"><div class="spinner"></div><span id="loader-msg">Analysing…</span></div></div>
+  </div>
+
+  <aside class="panel" id="panel">
+    <div class="empty-state" id="empty-state">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="#bbb" stroke-width="1.5"/><path d="M16 10v6l4 4" stroke="#bbb" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Run an analysis to see<br>forest cover statistics
+    </div>
+
+    <div id="single-panel" style="display:none">
+      <div class="panel-section">
+        <div class="section-eyebrow">Forest cover</div>
+        <div class="big-stat">
+          <div class="big-stat-value" id="p-area">—</div>
+          <div class="big-stat-unit">hectares</div>
+          <div class="big-stat-label">Vegetated land detected within study area</div>
+        </div>
+        <div class="metric-grid">
+          <div class="metric-cell">
+            <div class="metric-cell-label">Coverage</div>
+            <div class="metric-cell-value" id="p-cov">—</div>
+            <div class="metric-cell-unit">% of frame</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-cell-label">Carbon stock</div>
+            <div class="metric-cell-value" id="p-carbon">—</div>
+            <div class="metric-cell-unit">t-C (IPCC)</div>
+          </div>
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="section-eyebrow">CO₂ equivalent</div>
+        <div class="big-stat">
+          <div class="big-stat-value" id="p-co2">—</div>
+          <div class="big-stat-unit">tonnes-CO₂e stored</div>
+          <div class="big-stat-label">Carbon × 3.67 molecular weight ratio</div>
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="section-eyebrow">Historical trend</div>
+        <div class="compare-bars" id="trend-bars"></div>
+      </div>
+    </div>
+
+   
+    <div id="compare-panel" style="display:none">
+      <div class="panel-section">
+        <div class="section-eyebrow">Net change</div>
+        <div class="big-stat">
+          <div class="big-stat-value" id="c-net">—</div>
+          <div class="big-stat-unit">hectares net change</div>
+          <div class="big-stat-label" id="c-period">between selected years</div>
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="section-eyebrow">Breakdown</div>
+        <div class="change-row">
+          <span class="change-key">Forest lost</span>
+          <span class="change-val neg" id="c-lost">—</span>
+        </div>
+        <div class="change-row">
+          <span class="change-key">Forest gained</span>
+          <span class="change-val pos" id="c-gained">—</span>
+        </div>
+        <div class="change-row">
+          <span class="change-key">Carbon released</span>
+          <span class="change-val neg" id="c-carbon">—</span>
+        </div>
+        <div class="change-row">
+          <span class="change-key">CO₂ equivalent</span>
+          <span class="change-val neg" id="c-co2">—</span>
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="section-eyebrow">Year A — <span id="c-year-a-label">—</span></div>
+        <div class="metric-grid">
+          <div class="metric-cell">
+            <div class="metric-cell-label">Forest area</div>
+            <div class="metric-cell-value" id="c-a-area">—</div>
+            <div class="metric-cell-unit">ha</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-cell-label">CO₂ stored</div>
+            <div class="metric-cell-value" id="c-a-co2">—</div>
+            <div class="metric-cell-unit">t-CO₂e</div>
+          </div>
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="section-eyebrow">Year B — <span id="c-year-b-label">—</span></div>
+        <div class="metric-grid">
+          <div class="metric-cell">
+            <div class="metric-cell-label">Forest area</div>
+            <div class="metric-cell-value" id="c-b-area">—</div>
+            <div class="metric-cell-unit">ha</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-cell-label">CO₂ stored</div>
+            <div class="metric-cell-value" id="c-b-co2">—</div>
+            <div class="metric-cell-unit">t-CO₂e</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+
+<footer class="footer">
+  <span><strong>Method:</strong> VARI = (Green−Red)/(Green+Red−Blue) · threshold 0.08</span>
+  <span><strong>Carbon:</strong> 190 t-C/ha (IPCC tropical moist forest) · CO₂ ×3.67</span>
+  <span><strong>Source:</strong> Copernicus Sentinel-2 via Google Earth Engine</span>
+</footer>
+
+<script>
+const API = 'http://127.0.0.1:8000';
+let mode = 'single';
+let currentSatView = 'satellite';
+let cache = {};           
+let trendData = {};       
+let lastData = null;
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.mode-tab').forEach((b,i) => b.classList.toggle('active', (i===0&&m==='single')||(i===1&&m==='compare')));
+  document.getElementById('single-ctrl').style.display  = m==='single'  ? 'flex' : 'none';
+  document.getElementById('compare-ctrl').style.display = m==='compare' ? 'flex' : 'none';
+}
+
+function setSatView(v) {
+  currentSatView = v;
+  document.querySelectorAll('.vbtn').forEach((b,i)=>b.classList.toggle('active',['satellite','overlay','mask'][i]===v));
+  if (!lastData) return;
+  document.getElementById('main-img').src = lastData[v+'_url'] + '?t=' + Date.now();
+}
+
+function setStatus(msg) { document.getElementById('status-msg').textContent = msg; }
+function setLoading(on, msg='Analysing…') {
+  document.getElementById('loader').classList.toggle('show', on);
+  document.getElementById('loader-msg').textContent = msg;
+  document.getElementById('run-btn').disabled = on;
+}
+
+async function runAnalysis() {
+  const city = document.getElementById('city-select').value;
+  if (mode === 'single') {
+    await runSingle(city);
+  } else {
+    await runCompare(city);
+  }
+}
+
+async function runSingle(city) {
+  const year = document.getElementById('year-select').value;
+  const key = `${city}_${year}`;
+
+  setLoading(true, `Fetching ${city} ${year}…`);
+  setStatus('');
+
+  try {
+    if (!cache[key]) {
+      const r = await fetch(`${API}/analyze/${city}/${year}`);
+      if (!r.ok) throw new Error((await r.json()).detail);
+      cache[key] = await r.json();
+    }
+    const d = cache[key];
+    lastData = d;
+
+   
+    document.getElementById('placeholder').style.display = 'none';
+    document.getElementById('compare-view').style.display = 'none';
+    document.getElementById('single-view').style.display = 'block';
+    document.getElementById('main-img').src = d[currentSatView+'_url'] + '?t=' + Date.now();
+    document.getElementById('single-label').textContent = `${city.toUpperCase()} · ${year}`;
+
+    
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('compare-panel').style.display = 'none';
+    document.getElementById('single-panel').style.display = 'block';
+
+    animNum('p-area',   d.forest_area_ha, 0);
+    animNum('p-cov',    d.coverage_pct,   1);
+    animNum('p-carbon', d.carbon_t,       0);
+    animNum('p-co2',    d.co2_equiv_t,    0);
+
+    
+    if (!trendData[city]) trendData[city] = {};
+    trendData[city][year] = d.forest_area_ha;
+    updateTrendBars(city);
+
+    setStatus(`${city} ${year} · ${d.forest_area_ha} ha forest`);
+  } catch(e) {
+    setStatus('Error: ' + e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function runCompare(city) {
+  const ya = document.getElementById('year-a').value;
+  const yb = document.getElementById('year-b').value;
+  if (ya === yb) { setStatus('Choose two different years'); return; }
+
+  setLoading(true, `Comparing ${ya} → ${yb}…`);
+  setStatus('');
+
+  try {
+    const key = `cmp_${city}_${ya}_${yb}`;
+    if (!cache[key]) {
+      const r = await fetch(`${API}/compare/${city}/${ya}/${yb}`);
+      if (!r.ok) throw new Error((await r.json()).detail);
+      cache[key] = await r.json();
+    }
+    const d = cache[key];
+
+    const keyA = `${city}_${ya}`;
+    if (!cache[keyA]) {
+      const r = await fetch(`${API}/analyze/${city}/${ya}`);
+      cache[keyA] = await r.json();
+    }
+
+    document.getElementById('placeholder').style.display = 'none';
+    document.getElementById('single-view').style.display = 'none';
+    document.getElementById('compare-view').style.display = 'block';
+    document.getElementById('diff-img-a').src = cache[keyA].overlay_url + '?t=' + Date.now();
+    document.getElementById('diff-img').src   = d.diff_url + '?t=' + Date.now();
+    document.getElementById('cmp-label-a').textContent = `${city.toUpperCase()} · ${ya}`;
+    document.getElementById('cmp-label-b').textContent = `Change ${ya}→${yb}`;
+
+    
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('single-panel').style.display = 'none';
+    document.getElementById('compare-panel').style.display = 'block';
+
+    const net = d.change.net_ha;
+    const netEl = document.getElementById('c-net');
+    animNum('c-net', Math.abs(net), 1);
+    netEl.className = 'big-stat-value ' + (net < 0 ? 'loss-color' : 'gain-color');
+    document.getElementById('c-period').textContent = `${net < 0 ? 'lost' : 'gained'} between ${ya} and ${yb}`;
+
+    document.getElementById('c-lost').textContent   = `-${d.change.lost_ha} ha`;
+    document.getElementById('c-gained').textContent = `+${d.change.gained_ha} ha`;
+    document.getElementById('c-carbon').textContent = `-${d.change.lost_carbon_t} t-C`;
+    document.getElementById('c-co2').textContent    = `-${d.change.lost_co2_t} t-CO₂e`;
+
+    document.getElementById('c-year-a-label').textContent = ya;
+    document.getElementById('c-year-b-label').textContent = yb;
+    animNum('c-a-area', d.year_a_data.forest_area_ha, 0);
+    animNum('c-a-co2',  d.year_a_data.co2_equiv_t,    0);
+    animNum('c-b-area', d.year_b_data.forest_area_ha, 0);
+    animNum('c-b-co2',  d.year_b_data.co2_equiv_t,    0);
+
+    setStatus(`${city} ${ya}→${yb} · net ${net > 0 ? '+' : ''}${net} ha`);
+  } catch(e) {
+    setStatus('Error: ' + e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+function updateTrendBars(city) {
+  const data = trendData[city] || {};
+  const years = Object.keys(data).sort();
+  if (!years.length) return;
+  const max = Math.max(...years.map(y => data[y]));
+  const bars = document.getElementById('trend-bars');
+  bars.innerHTML = years.map(y => `
+    <div class="bar-row">
+      <span class="bar-year">${y}</span>
+      <div class="bar-track"><div class="bar-fill" data-w="${Math.round(data[y]/max*100)}%" style="width:0"></div></div>
+      <span class="bar-val">${data[y]} ha</span>
+    </div>`).join('');
+  setTimeout(() => {
+    bars.querySelectorAll('.bar-fill').forEach(b => b.style.width = b.dataset.w);
+  }, 60);
+}
+
+function animNum(id, target, dec) {
+  const el = document.getElementById(id);
+  const dur = 700, t0 = performance.now();
+  el.style.opacity = 0;
+  requestAnimationFrame(function tick(now) {
+    const p = Math.min((now-t0)/dur, 1);
+    const e = 1-Math.pow(1-p,3);
+    el.textContent = (target*e).toLocaleString('en-IN',{maximumFractionDigits:dec,minimumFractionDigits:dec});
+    el.style.opacity = p;
+    if (p<1) requestAnimationFrame(tick);
+    else el.textContent = target.toLocaleString('en-IN',{maximumFractionDigits:dec,minimumFractionDigits:dec});
+  });
+}
+</script>
+</body>
+</html>

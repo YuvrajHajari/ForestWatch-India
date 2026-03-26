@@ -1,0 +1,209 @@
+# ForestWatch India
+
+you can track urban tree cover loss using actual satellite data. built this for my pre final year project for software engineering class. it pulls sentinel-2 images from google earth engine, runs a vegetation index over each pixel, and spits out forest area + carbon numbers through a browser dashboard.
+
+works for bengaluru and chennai right now. adding a new city is literally just adding coordinates to a dict.
+
+---
+
+## what it does
+
+- fetches real sentinel-2 satellite images from GEE for any city + year you configure
+- detects vegetation using VARI (a colour-math formula that works on plain RGB)
+- shows forest area in hectares, carbon stored, and CO2 equivalent
+- compare two years side by side — see exactly which pixels went from forest to not-forest and vice versa
+- everything runs in a browser, no remote sensing knowledge needed to use it
+
+---
+
+## project structure
+
+```
+forestwatch/
+├── index.html           # the entire frontend, single file, no framework
+├── main.py              # fastapi backend — analysis endpoints
+├── satellite_fetch.py   # run this once to download satellite images from GEE
+├── model.py             # unet + resnet34 model (not used in current pipeline, kept for future)
+├── static/              # satellite images, masks, overlays all land here
+```
+
+---
+
+## setup
+
+### 1. clone and install dependencies
+
+```bash
+pip install fastapi uvicorn opencv-python-headless numpy earthengine-api python-dotenv
+```
+
+if you want to eventually use the deep learning model too:
+
+```bash
+pip install torch torchvision segmentation-models-pytorch
+```
+
+### 2. authenticate with google earth engine
+
+you need a GEE account. you don't have one? sign up at [earthengine.google.com](https://earthengine.google.com) — approval is pretty fast for students.
+
+```bash
+earthengine authenticate
+```
+
+this opens a browser, you log in, copy a token, paste it. one time thing.
+
+### 3. set your GEE project ID
+
+create a `.env` file in the root:
+
+```
+GEE_PROJECT=your-gee-project-id
+```
+
+### 4. fetch the satellite images
+
+this is the slow step. it downloads sentinel-2 composites for all cities and years and saves them to `/static`. run it once:
+
+```bash
+python satellite_fetch.py
+```
+
+it skips files that already exist so you can re-run it safely if something fails halfway.
+
+### 5. start the backend
+
+```bash
+uvicorn main:app --host 127.0.0.1 --port 8000
+```
+
+### 6. open the frontend
+
+just open `index.html` in your browser. that's about it. no build step, no node, nothing.
+
+---
+
+## cities and years
+
+cities are configured in two places — `main.py` and `satellite_fetch.py`. both need to match.
+
+current config:
+
+```python
+CITIES = {
+    "chennai":   {"lat": 13.0827, "lon": 80.2707, "buffer_km": 6},
+    "bengaluru": {"lat": 12.9716, "lon": 77.5946, "buffer_km": 6},
+}
+```
+
+to add a new city, add it to both files and re-run `satellite_fetch.py`. then add it to the dropdown in `index.html`.
+
+years available: 2016, 2019, 2022, 2025. to add more, add the year to the `YEARS` list in `satellite_fetch.py`, run the fetch again, and add the option to the selects in `index.html`.
+
+---
+
+## how the detection works
+
+VARI = (Green - Red) / (Green + Red - Blue)
+
+any pixel above 0.08 on this index AND with mean brightness above 30 (out of 255) get classified as vegetation. after that, morphological opening removes tiny noise blobs and closing fills small gaps inside tree canopy.
+
+the per-pixel area is 0.0001 hectares, based on sentinel-2's 10m ground resolution.
+
+carbon is calculated as:
+- forest area (ha) × 190 t-C/ha (IPCC tropical moist forest figure)
+- CO2 equivalent = carbon × 3.67 (molecular weight ratio of CO2 to C)
+
+---
+
+## known issues / things to be aware of
+
+**coastal cities get inflated numbers.** chennai's study area includes a chunk of bay of bengal. ocean water counts as green cover weirdly that pushes VARI above the threshold, so the detected "forest" area includes coastal pixels. fix- apply a water mask before running VARI.
+
+**very dense urban cores will show almost no vegetation.** bengaluru's CBD shows < 1 ha because most street-level greenery is smaller than sentinel-2's 10m pixel footprint. the system is better at detecting parks and wooded areas than diffuse street trees.
+
+
+**january-may compositing window.** images are pulled from the first half of the year to avoid monsoon cloud cover. if a city's peak greenness falls outside that window the numbers will be slightly lower than reality.
+
+---
+
+## api endpoints
+
+if you want to call the backend directly:
+
+| endpoint | what it does |
+|---|---|
+| `GET /cities` | list configured cities |
+| `GET /years/{city}` | list available years for a city |
+| `GET /analyze/{city}/{year}` | run VARI analysis, returns image URLs + metrics |
+| `GET /compare/{city}/{year_a}/{year_b}` | pixel-level change map between two years |
+
+example:
+
+```bash
+curl http://127.0.0.1:8000/analyze/bengaluru/2022
+```
+
+returns something like:
+
+```json
+{
+  "city": "bengaluru",
+  "year": "2022",
+  "satellite_url": "http://127.0.0.1:8000/static/satellite_bengaluru_2022.png",
+  "mask_url": "http://127.0.0.1:8000/static/mask_bengaluru_2022.png",
+  "overlay_url": "http://127.0.0.1:8000/static/overlay_bengaluru_2022.png",
+  "forest_area_ha": 0.49,
+  "coverage_pct": 1.9,
+  "carbon_t": 93.0,
+  "co2_equiv_t": 342.0
+}
+```
+
+---
+
+## static folder
+
+after running satellite_fetch.py and doing a few analyses, the static folder will have files like:
+
+```
+satellite_bengaluru_2022.png   ← raw sentinel-2 image
+mask_bengaluru_2022.png        ← black/white vegetation mask
+overlay_bengaluru_2022.png     ← satellite + green highlight overlay
+diff_bengaluru_2019_2025.png   ← change map (generated by /compare)
+```
+
+these are all served directly by the fastapi server. the frontend just points img tags at these URLs.
+
+---
+
+## tech used
+
+- **sentinel-2** via google earth engine — free satellite imagery at 10m resolution
+- **VARI** — vegetation index that works on plain RGB without needing infrared bands
+- **fastapi + uvicorn** — backend server
+- **opencv + numpy** — image processing and mask computation
+- **vanilla HTML/CSS/JS** — entire frontend, no react, no vue, nothing
+
+---
+
+## data sources and methodology
+
+satellite data: Copernicus Sentinel-2 Level-2A (COPERNICUS/S2_SR_HARMONIZED on GEE)
+
+carbon factor: IPCC 2006 Guidelines for National Greenhouse Gas Inventories, Volume 4 — 190 t-C/ha for tropical moist broadleaf forest (above + below ground combined)
+
+VARI index: Gitelson et al. 2002, Remote Sensing of Environment
+
+---
+
+## future plans
+
+- water mask to fix the coastal false positive problem
+- plug in the unet model from model.py as an optional better classifier
+- landsat 8 support for years before 2019
+- more cities
+
+---
+
+*project by Yuvraj Singh Hajari — 23BCE1995, VIT Chennai*
