@@ -429,7 +429,9 @@ select:focus{outline:2px solid var(--ink);outline-offset:2px}
 </footer>
 
 <script>
-const API = 'http://127.0.0.1:8000';
+// Change this to your Render URL after you deploy it
+const API = 'https://forestwatch-backend.onrender.com'; 
+
 let mode = 'single';
 let currentSatView = 'satellite';
 let cache = {};           
@@ -452,44 +454,37 @@ function setSatView(v) {
 
 function setStatus(msg) { document.getElementById('status-msg').textContent = msg; }
 function setLoading(on, msg='Analysing…') {
-  document.getElementById('loader').classList.toggle('show', on);
+  const loader = document.getElementById('loader');
+  if(loader) loader.classList.toggle('show', on);
   document.getElementById('loader-msg').textContent = msg;
   document.getElementById('run-btn').disabled = on;
 }
 
 async function runAnalysis() {
   const city = document.getElementById('city-select').value;
-  if (mode === 'single') {
-    await runSingle(city);
-  } else {
-    await runCompare(city);
-  }
+  if (mode === 'single') { await runSingle(city); } 
+  else { await runCompare(city); }
 }
 
 async function runSingle(city) {
   const year = document.getElementById('year-select').value;
   const key = `${city}_${year}`;
-
   setLoading(true, `Fetching ${city} ${year}…`);
-  setStatus('');
-
+  
   try {
     if (!cache[key]) {
       const r = await fetch(`${API}/analyze/${city}/${year}`);
-      if (!r.ok) throw new Error((await r.json()).detail);
+      if (!r.ok) throw new Error("Could not reach backend");
       cache[key] = await r.json();
     }
     const d = cache[key];
     lastData = d;
 
-   
     document.getElementById('placeholder').style.display = 'none';
     document.getElementById('compare-view').style.display = 'none';
     document.getElementById('single-view').style.display = 'block';
     document.getElementById('main-img').src = d[currentSatView+'_url'] + '?t=' + Date.now();
-    document.getElementById('single-label').textContent = `${city.toUpperCase()} · ${year}`;
 
-    
     document.getElementById('empty-state').style.display = 'none';
     document.getElementById('compare-panel').style.display = 'none';
     document.getElementById('single-panel').style.display = 'block';
@@ -499,18 +494,17 @@ async function runSingle(city) {
     animNum('p-carbon', d.carbon_t,       0);
     animNum('p-co2',    d.co2_equiv_t,    0);
 
-    
     if (!trendData[city]) trendData[city] = {};
     trendData[city][year] = d.forest_area_ha;
     updateTrendBars(city);
-
-    setStatus(`${city} ${year} · ${d.forest_area_ha} ha forest`);
   } catch(e) {
-    setStatus('Error: ' + e.message);
+    setStatus('Error: ' + e.message + ". Is Render awake?");
   } finally {
     setLoading(false);
   }
 }
+
+// ... (Rest of your runCompare and animNum functions remain the same)
 
 async function runCompare(city) {
   const ya = document.getElementById('year-a').value;
